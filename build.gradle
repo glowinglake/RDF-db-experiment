@@ -13,6 +13,7 @@ targetCompatibility = 1.8
 
 dependencies {
     compile "joda-time:joda-time:2.2"
+    compile group: 'org.jparsec', name: 'jparsec', version: '2.3'
     testCompile "junit:junit:4.12"
 }
 
@@ -20,3 +21,4 @@ jar {
     baseName = 'liquid'
     version =  '0.1.0'
 }
+apply plugin: 'idea'
