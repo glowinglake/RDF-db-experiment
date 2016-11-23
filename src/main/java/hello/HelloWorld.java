@@ -8,5 +8,6 @@ public class HelloWorld {
         System.out.println(greeter.sayHello());
         ListInt p = new ListInt();
         p.run();
+        p.test();
     }
 }
