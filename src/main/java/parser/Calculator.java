@@ -1,4 +1,4 @@
-package parser.Calculator;
+package parser;
 
 import org.codehaus.jparsec.*;
 import java.util.function.BinaryOperator;
