@@ -14,16 +14,20 @@ import java.util.List;
 public interface Database {
 
     /*
-    All read path.
+    All read paths.
      */
 
     List<Edge> Lookup(Link lookup);
+
+    // return 0 if specified literal doesn't exist.
     Long GetLiteralID(String literal);
+
     Literal GetLiteral(Long id);
+
     Edge GetEdge(Long id);
 
     /*
-    All write path.
+    All write paths.
      */
 
     boolean AddGraph(List<SymbolicEdge> symbolicEdges);

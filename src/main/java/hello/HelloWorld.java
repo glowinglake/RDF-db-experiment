@@ -12,10 +12,15 @@ public class HelloWorld {
         QueryParser p = new QueryParser();
         p.test();
         LiquidQuery liquidQuery = QueryParser.queryParser().parse(
-                "EdgeNode(a,\"p1\",b)," +
-                        "EdgeNode(b, \"p2\",c)," +
-                        "EdgeNode(c, \"p3\",\"xxx\")? ");
-        QuerySpec spec = ConstraintCompiler.Compile(liquidQuery);
-        System.out.println(spec.toString());
+                "EvalNode(a,\"p1\",b)," +
+                        "EvalNode(b, \"p2\",c)," +
+                        "EvalNode(c, \"p3\",\"xxx\")? ");
+        try {
+            QuerySpec spec = ConstraintCompiler.Compile(liquidQuery);
+            System.out.println(spec.toString());
+        } catch (Exception e) {
+            System.out.println(e.toString());
+            e.printStackTrace();
+        }
     }
 }

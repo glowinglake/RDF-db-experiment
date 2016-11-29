@@ -41,7 +41,7 @@ public class QueryParser {
             return true;
         }
         public String toString() {
-            return new String("Literal: " + bytes);
+            return new String("literal: " + bytes);
         }
     }
     public static class Bind extends Linkage {
@@ -84,7 +84,7 @@ public class QueryParser {
         }
     }
     // multiple edges represent a LiquidQuery
-    // EdgeNode(a,"p1",b), EdgeNode(b, "p2",c), EdgeNode(c, "p3","xxx")?
+    // EvalNode(a,"p1",b), EvalNode(b, "p2",c), EvalNode(c, "p3","xxx")?
     public static class LiquidQuery {
         List<EdgeTerm> edgeTerms;
         public LiquidQuery(List<EdgeTerm> terms) {
@@ -146,7 +146,7 @@ public class QueryParser {
                 });
     }
     private static org.codehaus.jparsec.Parser<EdgeTerm> edgeTermParser() {
-        return Parsers.tuple(Scanners.string("EdgeNode("),
+        return Parsers.tuple(Scanners.string("EvalNode("),
                 allLinkageParser(),
                 Scanners.string(")"))
                 .map(new Map<Tuple3<Void, AllLinkage, Void>, EdgeTerm>() {
@@ -172,8 +172,8 @@ public class QueryParser {
 
 
     public static void test() {
-        System.out.print(edgeTermParser().parse("EdgeNode(a, \"mypred\", o)").toString());
-        System.out.print(queryParser().parse("EdgeNode(a,\"p1\",b), EdgeNode(b, \"p2\",c), EdgeNode(c, \"p3\",\"xxx\")? ").toString());
+        System.out.print(edgeTermParser().parse("EvalNode(a, \"mypred\", o)").toString());
+        System.out.print(queryParser().parse("EvalNode(a,\"p1\",b), EvalNode(b, \"p2\",c), EvalNode(c, \"p3\",\"xxx\")? ").toString());
 
 /*
         QueryParser<List<String>> edges = edgeParser.sepBy(operators.token(","))

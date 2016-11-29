@@ -1,5 +1,7 @@
 package parser;
 
+import evaluator.EvalNode;
+import evaluator.EvalNodeTuple;
 import javafx.util.Pair;
 import parser.QueryParser.*;
 
@@ -23,13 +25,13 @@ public class ConstraintCompiler {
         public abstract boolean IsLiteral();
     }
     public static class LinkageOperand extends Operand {
-        int bind_id;
+        public int bind_id;
         public LinkageOperand(int bid) {
             isLiteral = false;
             bind_id = bid;
         }
         @Override
-        public boolean IsLiteral() {return true;};
+        public boolean IsLiteral() {return false;};
         public String toString() {
             StringBuilder sb = new StringBuilder("Bind:");
             sb.append(bind_id);
@@ -38,150 +40,117 @@ public class ConstraintCompiler {
     }
     public static class LiteralOperand extends Operand {
         String literal;
+        String GetLiteral() {return literal;}
         public LiteralOperand(String l) {
             isLiteral = true;
             literal = l;
         }
         @Override
-        public boolean IsLiteral() {return false;};
+        public boolean IsLiteral() {return true;};
         public String toString() {
-            StringBuilder sb = new StringBuilder("Literal:");
+            StringBuilder sb = new StringBuilder("literal:");
             sb.append("\"");
             sb.append(literal);
             sb.append("\"");
             return sb.toString();
         };
     }
-    public static class EdgeNode {
-        int edgeNodeId;
-        Operand sub;
-        Operand pred;
-        Operand obj;
-        public EdgeNode(int eid, Operand s, Operand p, Operand o) {
-            edgeNodeId = eid;
-            sub = s;
-            pred = p;
-            obj = o;
-        }
-        public String toString() {
-            StringBuilder sb = new StringBuilder(" EdgeNode \n");
-            sb.append("EdgeId " + edgeNodeId + "| Sub " + sub.toString()
-                    + "| Pred " + pred.toString()
-                    + "| Obj " + obj.toString());
-            return sb.toString();
-        }
-    }
-    // Manages a partial query, consist of one or more EdgeNode(s)
-    public static class EdgeNodeTuple {
-        // mapping from edge id to EdgeNodes in current tuple
-        Map<Integer, EdgeNode> edgeNodeMap;
-        /*
-        maintain mapping between bind id and linkages in EdgeNodes
-        TODO: explain Edge(a, "p1", a), Edge(a, p, b)?
-        */
-        Map<Integer, List<Pair<Integer, LinkageEnum>>> bind2EdgeNodeLinks;
 
-        public EdgeNodeTuple() {
-            edgeNodeMap = new HashMap<>();
-            bind2EdgeNodeLinks = new HashMap<>();
-        }
-        public void AddEdgeNode(EdgeNode edgeNode) {
-            edgeNodeMap.put(edgeNode.edgeNodeId, edgeNode);
-            BuildBind2EdgeNodeLinksMap();
-        }
-        public String toString() {
-            StringBuilder sb = new StringBuilder("EdgeNodeTuple\n");
-            for (Map.Entry<Integer, EdgeNode> e : edgeNodeMap.entrySet()) {
-                sb.append(e.getValue());
-            }
-            sb.append("\nEnd of EdgeNodeTuple\n");
-            return sb.toString();
-        }
-        public void BuildBind2EdgeNodeLinksMap() {
-            bind2EdgeNodeLinks.clear();
-            for (Map.Entry<Integer, EdgeNode> entry : edgeNodeMap.entrySet()) {
-                Integer edgeNodeId = entry.getKey();
-                if (!entry.getValue().sub.IsLiteral()) {
-                    LinkageOperand sub = (LinkageOperand)entry.getValue().sub;
-                    Pair<Integer, LinkageEnum> pair = new Pair<>(edgeNodeId, LinkageEnum.Subject);
-                    List<Pair<Integer, LinkageEnum>> list =
-                            bind2EdgeNodeLinks.getOrDefault(sub.bind_id, new ArrayList<Pair<Integer, LinkageEnum>>());
-                    list.add(pair);
-                    bind2EdgeNodeLinks.put(sub.bind_id, list);
-                }
-                if (!entry.getValue().pred.IsLiteral()) {
-                    LinkageOperand pred = (LinkageOperand)entry.getValue().pred;
-                    Pair<Integer, LinkageEnum> pair = new Pair<>(edgeNodeId, LinkageEnum.Predicate);
-                    List<Pair<Integer, LinkageEnum>> list =
-                            bind2EdgeNodeLinks.getOrDefault(pred.bind_id, new ArrayList<Pair<Integer, LinkageEnum>>());
-                    list.add(pair);
-                    bind2EdgeNodeLinks.put(pred.bind_id, list);
-                }
-                if (!entry.getValue().obj.IsLiteral()) {
-                    LinkageOperand obj = (LinkageOperand)entry.getValue().obj;
-                    Pair<Integer, LinkageEnum> pair = new Pair<>(edgeNodeId, LinkageEnum.Object);
-                    List<Pair<Integer, LinkageEnum>> list =
-                            bind2EdgeNodeLinks.getOrDefault(obj.bind_id, new ArrayList<Pair<Integer, LinkageEnum>>());
-                    list.add(pair);
-                    bind2EdgeNodeLinks.put(obj.bind_id, list);
-                }
-            }
-        }
-    }
     public static class ConstraintCompilationException extends Exception {
         public ConstraintCompilationException(String msg) {super(msg);};
     }
-    // Represents a constraint in the query. A constraint forces
-    // two linkage fields in one or more EdgeNodes to be equal.
-    // Only equal constraint is being considered.
-    public static class Constraint {
-        Integer leftEdgeNodeId;
-        LinkageEnum leftLinkageEnum;
-        Integer rightEdgeNodeId;
-        LinkageEnum rightLinkageEnum;
-        public Constraint(Integer l, LinkageEnum le, Integer r, LinkageEnum re) throws ConstraintCompilationException {
-            leftEdgeNodeId = l;
-            leftLinkageEnum = le;
-            rightEdgeNodeId = r;
-            rightLinkageEnum = re;
-            if (leftEdgeNodeId == rightEdgeNodeId && leftLinkageEnum.equals(rightLinkageEnum)) {
-                throw new ConstraintCompilationException("Constraint cannot be equal at both sides!");
-            }
-        }
-    }
     // A QuerySpec represents the full specification of a query.
-    // in the beginning each EdgeNodeTuple contains one EdgeNode
+    // in the beginning each EvalNodeTuple contains one EvalNode
     // the evaluation process resolves one constraint in each round,
-    // and can merges two EdgeNodeTuples into one as a result.
+    // and can merges two EvalNodeTuples into one as a result.
     // In the end all constraints are resolved,
     // there is a single tuple remaining, and evaluation is complete.
     public static class QuerySpec {
-        List<EdgeNodeTuple> edgeNodeTuples;
+        public List<EvalNodeTuple> evalNodeTuples;
+        public List<LiteralConstraint> literalConstraints;
+        public List<LinkageConstraint> linkageConstraints;
+        public Map<Integer, EvalNodeTuple> evalNodeId2EvalNodeTuple;
+
         public QuerySpec() {
-            edgeNodeTuples = new ArrayList<>();
+            evalNodeTuples = new ArrayList<>();
+            evalNodeId2EvalNodeTuple = new HashMap<>();
         }
-        public void AddTuple(EdgeNodeTuple t) {
-            edgeNodeTuples.add(t);
+
+        public void AddTuple(EvalNodeTuple t) {
+            evalNodeTuples.add(t);
+            for (Map.Entry<Integer, EvalNode> kv : t.evalNodeMap.entrySet()) {
+                evalNodeId2EvalNodeTuple.put(kv.getKey(), t);
+            }
         }
-        public void CompileConstraints() {
+        public void CompileConstraints() throws ConstraintCompilationException {
             // build a list of constraints based on binds
             // A constraint is either EQ or NEQ between two linkages
-            
+            linkageConstraints = BuildLinkageConstraints();
+            literalConstraints = BuildLiteralConstraints();
 
+        }
+        private List<LinkageConstraint> BuildLinkageConstraints() throws ConstraintCompilationException {
+            List<LinkageConstraint> res = new ArrayList<>();
+            Map<Integer, Pair<Integer, LinkageEnum>> bind2FirstAppearance
+                    = new HashMap<>();
+            for (EvalNodeTuple evalNodeTuple : evalNodeTuples) {
+                for (Map.Entry<Integer, List<Pair<Integer, LinkageEnum>>> allPairs :
+                        evalNodeTuple.bind2EvalNodeLinks.entrySet()) {
+                    for (Pair<Integer, LinkageEnum> pair : allPairs.getValue()) {
+                        Integer bind_id = allPairs.getKey();
+                        if (!bind2FirstAppearance.containsKey(bind_id)) {
+                            bind2FirstAppearance.put(bind_id, pair);
+                        } else {
+                            // already have LHS, create a constraint to connect LHS to RHS
+                            Pair<Integer, LinkageEnum> LHS = bind2FirstAppearance.get(bind_id);
+                            LinkageConstraint linkageConstraint
+                                    = new LinkageConstraint(LHS.getKey(), LHS.getValue(),
+                                    pair.getKey(), pair.getValue());
+                            res.add(linkageConstraint);
+                        }
+                    }
+                }
+            }
+            return res;
+        }
+        private List<LiteralConstraint> BuildLiteralConstraints() throws ConstraintCompilationException {
+            List<LiteralConstraint> res = new ArrayList<>();
+            for (EvalNodeTuple evalNodeTuple : evalNodeTuples) {
+                for (Map.Entry<Integer, EvalNode> evalNodeKV : evalNodeTuple.evalNodeMap.entrySet()) {
+                    EvalNode evalNode = evalNodeKV.getValue();
+                    if (evalNode.sub.IsLiteral()) {
+                        res.add(new LiteralConstraint(
+                                evalNodeKV.getKey(), LinkageEnum.Subject,
+                                ((LiteralOperand) evalNode.sub).GetLiteral()));
+                    }
+                    if (evalNode.pred.IsLiteral()) {
+                        res.add(new LiteralConstraint(
+                                evalNodeKV.getKey(), LinkageEnum.Predicate,
+                                ((LiteralOperand) evalNode.pred).GetLiteral()));
+                    }
+                    if (evalNode.obj.IsLiteral()) {
+                        res.add(new LiteralConstraint(
+                                evalNodeKV.getKey(), LinkageEnum.Object,
+                                ((LiteralOperand) evalNode.obj).GetLiteral()));
+                    }
+                }
+            }
+            return res;
         }
         public String toString() {
             StringBuilder sb = new StringBuilder(" QuerySpec \n");
-            for (EdgeNodeTuple t : edgeNodeTuples) {
+            for (EvalNodeTuple t : evalNodeTuples) {
                 sb.append(t.toString());
+            }
+            for (LiteralConstraint c : literalConstraints) {
+                sb.append(c.toString());
+            }
+            for (LinkageConstraint c : linkageConstraints) {
+                sb.append(c.toString());
             }
             sb.append(" End of QuerySpec\n");
             return sb.toString();
         }
-    }
-    public static class BindInfo {
-        Integer EdgeNodeId;
-        Integer BindId;
-        LinkageEnum linkageEnum;
     }
     public static Integer GetBindId(String bind_symbol,
                                     Map<String, Integer> bind_to_id) {
@@ -206,21 +175,22 @@ public class ConstraintCompiler {
         return op;
     }
 
-    public static QuerySpec Compile(LiquidQuery query) {
+    public static QuerySpec Compile(LiquidQuery query) throws ConstraintCompilationException{
         Map<String, Integer> bind_to_id = new HashMap<>();
-        Map<String, BindInfo> bindInfoMap = new HashMap<>();
         QuerySpec spec = new QuerySpec();
+        // create all EvalNodeTuples, each containing one EvalNode initially.
         int edgeId = 0;
         for (EdgeTerm edgeTerm : query.edgeTerms) {
             Operand sub = GetOperand(edgeTerm.allLinkage.sub, bind_to_id);
             Operand pred = GetOperand(edgeTerm.allLinkage.pred, bind_to_id);
             Operand obj = GetOperand(edgeTerm.allLinkage.obj, bind_to_id);
-            EdgeNode edgeNode = new EdgeNode(edgeId, sub, pred, obj);
-            EdgeNodeTuple edgeNodeTuple = new EdgeNodeTuple();
-            edgeNodeTuple.AddEdgeNode(edgeNode);
-            spec.AddTuple(edgeNodeTuple);
+            EvalNode evalNode = new EvalNode(edgeId, sub, pred, obj);
+            EvalNodeTuple evalNodeTuple = new EvalNodeTuple();
+            evalNodeTuple.AddEvalNode(evalNode);
+            spec.AddTuple(evalNodeTuple);
             edgeId++;
         }
+        // create all constraints based on linkage/literal bindings
         spec.CompileConstraints();
         return spec;
     }
